@@ -26,15 +26,15 @@ from ..user_and_chats import Chat
 class Dialog(PyrogramType):
     """This object represents a dialog.
 
-    Args:
+    Parameters:
         chat (:obj:`Chat <pyrogram.Chat>`):
             Conversation the dialog belongs to.
 
-        top_message (:obj:`Message <pyrogram.Message>`):
+        top_message (:obj:`Message`):
             The last message sent in the dialog at this time.
 
         unread_messages_count (``int``):
-            Amount of unread messages in this dialogs.
+            Amount of unread messages in this dialog.
 
         unread_mentions_count (``int``):
             Amount of unread messages containing a mention in this dialog.

@@ -25,6 +25,10 @@ sys.path.insert(0, os.path.abspath('../..'))
 # Import after sys.path.insert() to avoid issues
 from pyrogram import __version__
 
+from pygments.styles.friendly import FriendlyStyle
+
+FriendlyStyle.background_color = "#f3f2f1"
+
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -39,6 +43,8 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.autosummary'
 ]
+
+napoleon_use_rtype = False
 
 # Don't show source files on docs
 html_show_sourcelink = True
@@ -60,7 +66,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Pyrogram'
-copyright = '2017-2018, Dan Tès'
+copyright = '2017-2019, Dan Tès'
 author = 'Dan Tès'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -85,7 +91,7 @@ language = None
 exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'tango'
+pygments_style = 'friendly'
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
@@ -108,7 +114,7 @@ html_theme = 'sphinx_rtd_theme'
 #
 html_theme_options = {
     'canonical_url': "https://docs.pyrogram.ml/",
-    'collapse_navigation': False,
+    'collapse_navigation': True,
     'sticky_navigation': False,
     'logo_only': True,
     'display_version': True

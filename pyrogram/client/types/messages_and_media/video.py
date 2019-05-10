@@ -28,7 +28,7 @@ from ...ext.utils import encode
 class Video(PyrogramType):
     """This object represents a video file.
 
-    Args:
+    Parameters:
         file_id (``str``):
             Unique identifier for this file.
 
@@ -41,7 +41,7 @@ class Video(PyrogramType):
         duration (``int``):
             Duration of the video in seconds as defined by sender.
 
-        thumb (:obj:`PhotoSize <pyrogram.PhotoSize>`, *optional*):
+        thumb (:obj:`PhotoSize`, *optional*):
             Video thumbnail.
 
         file_name (``str``, *optional*):
@@ -50,6 +50,9 @@ class Video(PyrogramType):
         mime_type (``str``, *optional*):
             Mime type of a file as defined by sender.
 
+        supports_streaming (``bool``, *optional*):
+            True, if the video was uploaded with streaming support.
+
         file_size (``int``, *optional*):
             File size.
 
@@ -57,7 +60,10 @@ class Video(PyrogramType):
             Date the video was sent in Unix time.
     """
 
-    __slots__ = ["file_id", "thumb", "file_name", "mime_type", "file_size", "date", "width", "height", "duration"]
+    __slots__ = [
+        "file_id", "width", "height", "duration", "thumb", "file_name", "mime_type", "supports_streaming", "file_size",
+        "date"
+    ]
 
     def __init__(
         self,
@@ -70,20 +76,22 @@ class Video(PyrogramType):
         thumb: PhotoSize = None,
         file_name: str = None,
         mime_type: str = None,
+        supports_streaming: bool = None,
         file_size: int = None,
         date: int = None
     ):
         super().__init__(client)
 
         self.file_id = file_id
-        self.thumb = thumb
-        self.file_name = file_name
-        self.mime_type = mime_type
-        self.file_size = file_size
-        self.date = date
         self.width = width
         self.height = height
         self.duration = duration
+        self.thumb = thumb
+        self.file_name = file_name
+        self.mime_type = mime_type
+        self.supports_streaming = supports_streaming
+        self.file_size = file_size
+        self.date = date
 
     @staticmethod
     def _parse(client, video: types.Document, video_attributes: types.DocumentAttributeVideo,
@@ -102,9 +110,10 @@ class Video(PyrogramType):
             height=video_attributes.h,
             duration=video_attributes.duration,
             thumb=PhotoSize._parse(client, video.thumbs),
-            mime_type=video.mime_type,
-            file_size=video.size,
             file_name=file_name,
+            mime_type=video.mime_type,
+            supports_streaming=video_attributes.supports_streaming,
+            file_size=video.size,
             date=video.date,
             client=client
         )

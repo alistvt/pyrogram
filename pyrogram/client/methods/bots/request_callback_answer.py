@@ -27,12 +27,13 @@ class RequestCallbackAnswer(BaseClient):
         self,
         chat_id: Union[int, str],
         message_id: int,
-        callback_data: bytes
+        callback_data: bytes,
+        timeout: int = 10
     ):
         """Use this method to request a callback answer from bots.
         This is the equivalent of clicking an inline button containing callback data.
 
-        Args:
+        Parameters:
             chat_id (``int`` | ``str``):
                 Unique identifier (int) or username (str) of the target chat.
                 For your personal cloud (Saved Messages) you can simply use "me" or "self".
@@ -44,13 +45,16 @@ class RequestCallbackAnswer(BaseClient):
             callback_data (``bytes``):
                 Callback data associated with the inline button you want to get the answer from.
 
+            timeout (``int``, *optional*):
+                Timeout in seconds.
+
         Returns:
             The answer containing info useful for clients to display a notification at the top of the chat screen
             or as an alert.
 
         Raises:
-            :class:`RPCError <pyrogram.RPCError>` in case of a Telegram RPC error.
-            ``TimeoutError`` if the bot fails to answer within 10 seconds.
+            RPCError: In case of a Telegram RPC error.
+            TimeoutError: In case the bot fails to answer within 10 seconds.
         """
         return self.send(
             functions.messages.GetBotCallbackAnswer(
@@ -59,5 +63,5 @@ class RequestCallbackAnswer(BaseClient):
                 data=callback_data
             ),
             retries=0,
-            timeout=10
+            timeout=timeout
         )

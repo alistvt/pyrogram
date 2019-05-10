@@ -29,7 +29,6 @@ import struct
 import tempfile
 import threading
 import time
-import warnings
 from configparser import ConfigParser
 from datetime import datetime
 from hashlib import sha256, md5
@@ -41,6 +40,10 @@ from typing import Union, List
 
 from pyrogram.api import functions, types
 from pyrogram.api.core import Object
+from pyrogram.client.handlers import DisconnectHandler
+from pyrogram.client.handlers.handler import Handler
+from pyrogram.client.methods.password.utils import compute_check
+from pyrogram.crypto import AES
 from pyrogram.errors import (
     PhoneMigrate, NetworkMigrate, PhoneNumberInvalid,
     PhoneNumberUnoccupied, PhoneCodeInvalid, PhoneCodeHashEmpty,
@@ -49,10 +52,6 @@ from pyrogram.errors import (
     VolumeLocNotFound, UserMigrate, FileIdInvalid, ChannelPrivate, PhoneNumberOccupied,
     PasswordRecoveryNa, PasswordEmpty
 )
-from pyrogram.client.handlers import DisconnectHandler
-from pyrogram.client.handlers.handler import Handler
-from pyrogram.client.methods.password.utils import compute_check
-from pyrogram.crypto import AES
 from pyrogram.session import Auth, Session
 from .ext import utils, Syncer, BaseClient, Dispatcher
 from .methods import Methods
@@ -65,7 +64,7 @@ class Client(Methods, BaseClient):
     It exposes bot-like methods for an easy access to the API as well as a simple way to
     invoke every single Telegram API method available.
 
-    Args:
+    Parameters:
         session_name (``str``):
             Name to uniquely identify a session of either a User or a Bot, e.g.: "my_account". This name will be used
             to save a file to disk that stores details needed for reconnecting without asking again for credentials.
@@ -262,12 +261,11 @@ class Client(Methods, BaseClient):
         self._proxy.update(value)
 
     def start(self):
-        """Use this method to start the Client after creating it.
-        Requires no parameters.
+        """Use this method to start the Client.
 
         Raises:
-            :class:`RPCError <pyrogram.RPCError>` in case of a Telegram RPC error.
-            ``ConnectionError`` in case you try to start an already started Client.
+            RPCError: In case of a Telegram RPC error.
+            ConnectionError: In case you try to start an already started Client.
         """
         if self.is_started:
             raise ConnectionError("Client has already been started")
@@ -276,10 +274,10 @@ class Client(Methods, BaseClient):
             self.is_bot = True
             self.bot_token = self.session_name
             self.session_name = self.session_name.split(":")[0]
-            warnings.warn('\nYou are using a bot token as session name.\n'
-                          'It will be deprecated in next update, please use session file name to load '
-                          'existing sessions and bot_token argument to create new sessions.',
-                          DeprecationWarning, stacklevel=2)
+            log.warning('\nWARNING: You are using a bot token as session name!\n'
+                        'This usage will be deprecated soon. Please use a session file name to load '
+                        'an existing session and the bot_token argument to create new sessions.\n'
+                        'More info: https://docs.pyrogram.ml/start/Setup#bot-authorization\n')
 
         self.load_config()
         self.load_session()
@@ -356,11 +354,10 @@ class Client(Methods, BaseClient):
         return self
 
     def stop(self):
-        """Use this method to manually stop the Client.
-        Requires no parameters.
+        """Use this method to stop the Client.
 
         Raises:
-            ``ConnectionError`` in case you try to stop an already stopped Client.
+            ConnectionError: In case you try to stop an already stopped Client.
         """
         if not self.is_started:
             raise ConnectionError("Client is already stopped")
@@ -400,23 +397,32 @@ class Client(Methods, BaseClient):
 
     def restart(self):
         """Use this method to restart the Client.
-        Requires no parameters.
 
         Raises:
-            ``ConnectionError`` in case you try to restart a stopped Client.
+            ConnectionError: In case you try to restart a stopped Client.
         """
         self.stop()
         self.start()
 
     def idle(self, stop_signals: tuple = (SIGINT, SIGTERM, SIGABRT)):
-        """Blocks the program execution until one of the signals are received,
-        then gently stop the Client by closing the underlying connection.
+        """Use this method to block the main script execution until a signal (e.g.: from CTRL+C) is received.
+        Once the signal is received, the client will automatically stop and the main script will continue its execution.
 
-        Args:
+        This is used after starting one or more clients and is useful for event-driven applications only, that are,
+        applications which react upon incoming Telegram updates through handlers, rather than executing a set of methods
+        sequentially.
+
+        The way Pyrogram works, will keep your handlers in a pool of workers, which are executed concurrently outside
+        the main script; calling idle() will ensure the client(s) will be kept alive by not letting the main script to
+        end, until you decide to quit.
+
+        Parameters:
             stop_signals (``tuple``, *optional*):
                 Iterable containing signals the signal handler will listen to.
                 Defaults to (SIGINT, SIGTERM, SIGABRT).
         """
+
+        # TODO: Maybe make this method static and don't automatically stop
 
         def signal_handler(*args):
             self.is_idle = False
@@ -432,11 +438,14 @@ class Client(Methods, BaseClient):
         self.stop()
 
     def run(self):
-        """Use this method to automatically start and idle a Client.
-        Requires no parameters.
+        """Use this method as a convenience shortcut to automatically start the Client and idle the main script.
+
+        This is a convenience method that literally just calls :meth:`start` and :meth:`idle`. It makes running a client
+        less verbose, but is not suitable in case you want to run more than one client in a single main script,
+        since :meth:`idle` will block.
 
         Raises:
-            :class:`RPCError <pyrogram.RPCError>` in case of a Telegram RPC error.
+            RPCError: In case of a Telegram RPC error.
         """
         self.start()
         self.idle()
@@ -448,7 +457,7 @@ class Client(Methods, BaseClient):
         will be used for a single update. To handle the same update more than once, register
         your handler using a different group id (lower group id == higher priority).
 
-        Args:
+        Parameters:
             handler (``Handler``):
                 The handler to be registered.
 
@@ -456,7 +465,7 @@ class Client(Methods, BaseClient):
                 The group identifier, defaults to 0.
 
         Returns:
-            A tuple of (handler, group)
+            ``tuple``: A tuple consisting of (handler, group).
         """
         if isinstance(handler, DisconnectHandler):
             self.disconnect_handler = handler.callback
@@ -466,13 +475,13 @@ class Client(Methods, BaseClient):
         return handler, group
 
     def remove_handler(self, handler: Handler, group: int = 0):
-        """Removes a previously-added update handler.
+        """Use this method to remove a previously-registered update handler.
 
         Make sure to provide the right group that the handler was added in. You can use
         the return value of the :meth:`add_handler` method, a tuple of (handler, group), and
         pass it directly.
 
-        Args:
+        Parameters:
             handler (``Handler``):
                 The handler to be removed.
 
@@ -753,9 +762,16 @@ class Client(Methods, BaseClient):
 
         print("Logged in successfully as {}".format(r.user.first_name))
 
-    def fetch_peers(self, entities: List[Union[types.User,
-                                               types.Chat, types.ChatForbidden,
-                                               types.Channel, types.ChannelForbidden]]):
+    def fetch_peers(
+        self,
+        entities: List[
+            Union[
+                types.User,
+                types.Chat, types.ChatForbidden,
+                types.Channel, types.ChannelForbidden
+            ]
+        ]
+    ):
         for entity in entities:
             if isinstance(entity, types.User):
                 user_id = entity.id
@@ -862,18 +878,20 @@ class Client(Methods, BaseClient):
                 file_name = file_name or getattr(media, "file_name", None)
 
                 if not file_name:
-                    if media_type == 3:
-                        extension = ".ogg"
-                    elif media_type in (4, 10, 13):
-                        extension = mimetypes.guess_extension(media.mime_type) or ".mp4"
-                    elif media_type == 5:
-                        extension = mimetypes.guess_extension(media.mime_type) or ".unknown"
-                    elif media_type == 8:
-                        extension = ".webp"
-                    elif media_type == 9:
-                        extension = mimetypes.guess_extension(media.mime_type) or ".mp3"
-                    elif media_type in (0, 1, 2):
+                    guessed_extension = self.guess_extension(media.mime_type)
+
+                    if media_type in (0, 1, 2):
                         extension = ".jpg"
+                    elif media_type == 3:
+                        extension = guessed_extension or ".ogg"
+                    elif media_type in (4, 10, 13):
+                        extension = guessed_extension or ".mp4"
+                    elif media_type == 5:
+                        extension = guessed_extension or ".zip"
+                    elif media_type == 8:
+                        extension = guessed_extension or ".webp"
+                    elif media_type == 9:
+                        extension = guessed_extension or ".mp3"
                     else:
                         continue
 
@@ -1017,18 +1035,21 @@ class Client(Methods, BaseClient):
 
         log.debug("{} stopped".format(name))
 
-    def send(self,
-             data: Object,
-             retries: int = Session.MAX_RETRIES,
-             timeout: float = Session.WAIT_TIMEOUT):
-        """Use this method to send Raw Function queries.
+    def send(self, data: Object, retries: int = Session.MAX_RETRIES, timeout: float = Session.WAIT_TIMEOUT):
+        """Use this method to send raw Telegram queries.
 
-        This method makes possible to manually call every single Telegram API method in a low-level manner.
+        This method makes it possible to manually call every single Telegram API method in a low-level manner.
         Available functions are listed in the :obj:`functions <pyrogram.api.functions>` package and may accept compound
         data types from :obj:`types <pyrogram.api.types>` as well as bare types such as ``int``, ``str``, etc...
 
-        Args:
-            data (``Object``):
+        .. note::
+
+            This is a utility method intended to be used **only** when working with raw
+            :obj:`functions <pyrogram.api.functions>` (i.e: a Telegram API method you wish to use which is not
+            available yet in the Client class as an easy-to-use method).
+
+        Parameters:
+            data (``RawFunction``):
                 The API Schema function filled with proper arguments.
 
             retries (``int``):
@@ -1037,8 +1058,11 @@ class Client(Methods, BaseClient):
             timeout (``float``):
                 Timeout in seconds.
 
+        Returns:
+            ``RawType``: The raw type response generated by the query.
+
         Raises:
-            :class:`RPCError <pyrogram.RPCError>` in case of a Telegram RPC error.
+            RPCError: In case of a Telegram RPC error.
         """
         if not self.is_started:
             raise ConnectionError("Client has not been started")
@@ -1175,8 +1199,8 @@ class Client(Methods, BaseClient):
                             if isinstance(handler, Handler) and isinstance(group, int):
                                 self.add_handler(handler, group)
 
-                                log.info('[LOAD] {}("{}") in group {} from "{}"'.format(
-                                    type(handler).__name__, name, group, module_path))
+                                log.info('[{}] [LOAD] {}("{}") in group {} from "{}"'.format(
+                                    self.session_name, type(handler).__name__, name, group, module_path))
 
                                 count += 1
                         except Exception:
@@ -1189,11 +1213,13 @@ class Client(Methods, BaseClient):
                     try:
                         module = import_module(module_path)
                     except ImportError:
-                        log.warning('[LOAD] Ignoring non-existent module "{}"'.format(module_path))
+                        log.warning('[{}] [LOAD] Ignoring non-existent module "{}"'.format(
+                            self.session_name, module_path))
                         continue
 
                     if "__path__" in dir(module):
-                        log.warning('[LOAD] Ignoring namespace "{}"'.format(module_path))
+                        log.warning('[{}] [LOAD] Ignoring namespace "{}"'.format(
+                            self.session_name, module_path))
                         continue
 
                     if handlers is None:
@@ -1208,14 +1234,14 @@ class Client(Methods, BaseClient):
                             if isinstance(handler, Handler) and isinstance(group, int):
                                 self.add_handler(handler, group)
 
-                                log.info('[LOAD] {}("{}") in group {} from "{}"'.format(
-                                    type(handler).__name__, name, group, module_path))
+                                log.info('[{}] [LOAD] {}("{}") in group {} from "{}"'.format(
+                                    self.session_name, type(handler).__name__, name, group, module_path))
 
                                 count += 1
                         except Exception:
                             if warn_non_existent_functions:
-                                log.warning('[LOAD] Ignoring non-existent function "{}" from "{}"'.format(
-                                    name, module_path))
+                                log.warning('[{}] [LOAD] Ignoring non-existent function "{}" from "{}"'.format(
+                                    self.session_name, name, module_path))
 
             if exclude is not None:
                 for path, handlers in exclude:
@@ -1225,11 +1251,13 @@ class Client(Methods, BaseClient):
                     try:
                         module = import_module(module_path)
                     except ImportError:
-                        log.warning('[UNLOAD] Ignoring non-existent module "{}"'.format(module_path))
+                        log.warning('[{}] [UNLOAD] Ignoring non-existent module "{}"'.format(
+                            self.session_name, module_path))
                         continue
 
                     if "__path__" in dir(module):
-                        log.warning('[UNLOAD] Ignoring namespace "{}"'.format(module_path))
+                        log.warning('[{}] [UNLOAD] Ignoring namespace "{}"'.format(
+                            self.session_name, module_path))
                         continue
 
                     if handlers is None:
@@ -1244,19 +1272,21 @@ class Client(Methods, BaseClient):
                             if isinstance(handler, Handler) and isinstance(group, int):
                                 self.remove_handler(handler, group)
 
-                                log.info('[UNLOAD] {}("{}") from group {} in "{}"'.format(
-                                    type(handler).__name__, name, group, module_path))
+                                log.info('[{}] [UNLOAD] {}("{}") from group {} in "{}"'.format(
+                                    self.session_name, type(handler).__name__, name, group, module_path))
 
                                 count -= 1
                         except Exception:
                             if warn_non_existent_functions:
-                                log.warning('[UNLOAD] Ignoring non-existent function "{}" from "{}"'.format(
-                                    name, module_path))
+                                log.warning('[{}] [UNLOAD] Ignoring non-existent function "{}" from "{}"'.format(
+                                    self.session_name, name, module_path))
 
             if count > 0:
-                log.warning('Successfully loaded {} plugin{} from "{}"'.format(count, "s" if count > 1 else "", root))
+                log.warning('[{}] Successfully loaded {} plugin{} from "{}"'.format(
+                    self.session_name, count, "s" if count > 1 else "", root))
             else:
-                log.warning('No plugin loaded from "{}"'.format(root))
+                log.warning('[{}] No plugin loaded from "{}"'.format(
+                    self.session_name, root))
 
     def save_session(self):
         auth_key = base64.b64encode(self.auth_key).decode()
@@ -1278,8 +1308,7 @@ class Client(Methods, BaseClient):
                 indent=4
             )
 
-    def get_initial_dialogs_chunk(self,
-                                  offset_date: int = 0):
+    def get_initial_dialogs_chunk(self, offset_date: int = 0):
         while True:
             try:
                 r = self.send(
@@ -1311,25 +1340,27 @@ class Client(Methods, BaseClient):
 
         self.get_initial_dialogs_chunk()
 
-    def resolve_peer(self,
-                     peer_id: Union[int, str]):
-        """Use this method to get the InputPeer of a known peer_id.
+    def resolve_peer(self, peer_id: Union[int, str]):
+        """Use this method to get the InputPeer of a known peer id.
+        Useful whenever an InputPeer type is required.
 
-        This is a utility method intended to be used **only** when working with Raw Functions (i.e: a Telegram API
-        method you wish to use which is not available yet in the Client class as an easy-to-use method), whenever an
-        InputPeer type is required.
+        .. note::
 
-        Args:
+            This is a utility method intended to be used **only** when working with raw
+            :obj:`functions <pyrogram.api.functions>` (i.e: a Telegram API method you wish to use which is not
+            available yet in the Client class as an easy-to-use method).
+
+        Parameters:
             peer_id (``int`` | ``str``):
                 The peer id you want to extract the InputPeer from.
                 Can be a direct id (int), a username (str) or a phone number (str).
 
         Returns:
-            On success, the resolved peer id is returned in form of an InputPeer object.
+            ``InputPeer``: On success, the resolved peer id is returned in form of an InputPeer object.
 
         Raises:
-            :class:`RPCError <pyrogram.RPCError>` in case of a Telegram RPC error.
-            ``KeyError`` in case the peer doesn't exist in the internal database.
+            RPCError: In case of a Telegram RPC error.
+            KeyError: In case the peer doesn't exist in the internal database.
         """
         try:
             return self.peers_by_id[peer_id]
@@ -1384,19 +1415,24 @@ class Client(Methods, BaseClient):
             except KeyError:
                 raise PeerIdInvalid
 
-    def save_file(self,
-                  path: str,
-                  file_id: int = None,
-                  file_part: int = 0,
-                  progress: callable = None,
-                  progress_args: tuple = ()):
+    def save_file(
+        self,
+        path: str,
+        file_id: int = None,
+        file_part: int = 0,
+        progress: callable = None,
+        progress_args: tuple = ()
+    ):
         """Use this method to upload a file onto Telegram servers, without actually sending the message to anyone.
+        Useful whenever an InputFile type is required.
 
-        This is a utility method intended to be used **only** when working with Raw Functions (i.e: a Telegram API
-        method you wish to use which is not available yet in the Client class as an easy-to-use method), whenever an
-        InputFile type is required.
+        .. note::
 
-        Args:
+            This is a utility method intended to be used **only** when working with raw
+            :obj:`functions <pyrogram.api.functions>` (i.e: a Telegram API method you wish to use which is not
+            available yet in the Client class as an easy-to-use method).
+
+        Parameters:
             path (``str``):
                 The path of the file you want to upload that exists on your local machine.
 
@@ -1416,7 +1452,7 @@ class Client(Methods, BaseClient):
                 a chat_id and a message_id in order to edit a message with the updated progress.
 
         Other Parameters:
-            client (:obj:`Client <pyrogram.Client>`):
+            client (:obj:`Client`):
                 The Client itself, useful when you want to call other API methods inside the callback function.
 
             current (``int``):
@@ -1430,10 +1466,10 @@ class Client(Methods, BaseClient):
                 You can either keep *\*args* or add every single extra argument in your function signature.
 
         Returns:
-            On success, the uploaded file is returned in form of an InputFile object.
+            ``InputFile``: On success, the uploaded file is returned in form of an InputFile object.
 
         Raises:
-            :class:`RPCError <pyrogram.RPCError>` in case of a Telegram RPC error.
+            RPCError: In case of a Telegram RPC error.
         """
         part_size = 512 * 1024
         file_size = os.path.getsize(path)
@@ -1709,3 +1745,13 @@ class Client(Methods, BaseClient):
             return ""
         else:
             return file_name
+
+    def guess_mime_type(self, filename: str):
+        extension = os.path.splitext(filename)[1]
+        return self.extensions_to_mime_types.get(extension)
+
+    def guess_extension(self, mime_type: str):
+        extensions = self.mime_types_to_extensions.get(mime_type)
+
+        if extensions:
+            return extensions.split(" ")[0]

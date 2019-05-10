@@ -47,7 +47,7 @@ class EditMessageMedia(BaseClient):
         Use previously uploaded file via its file_id or specify a URL. On success, if the edited message was sent
         by the bot, the edited Message is returned, otherwise True is returned.
 
-        Args:
+        Parameters:
             chat_id (``int`` | ``str``):
                 Unique identifier (int) or username (str) of the target chat.
                 For your personal cloud (Saved Messages) you can simply use "me" or "self".
@@ -63,10 +63,10 @@ class EditMessageMedia(BaseClient):
                 An InlineKeyboardMarkup object.
 
         Returns:
-            On success, the edited :obj:`Message <pyrogram.Message>` is returned.
+            :obj:`Message`: On success, the edited message is returned.
 
         Raises:
-            :class:`RPCError <pyrogram.RPCError>` in case of a Telegram RPC error.
+            RPCError: In case of a Telegram RPC error.
         """
         style = self.html if media.parse_mode.lower() == "html" else self.markdown
         caption = media.caption
@@ -123,7 +123,7 @@ class EditMessageMedia(BaseClient):
                     functions.messages.UploadMedia(
                         peer=self.resolve_peer(chat_id),
                         media=types.InputMediaUploadedDocument(
-                            mime_type="video/mp4",
+                            mime_type=self.guess_mime_type(media.media) or "video/mp4",
                             thumb=None if media.thumb is None else self.save_file(media.thumb),
                             file=self.save_file(media.media),
                             attributes=[
@@ -182,7 +182,7 @@ class EditMessageMedia(BaseClient):
                     functions.messages.UploadMedia(
                         peer=self.resolve_peer(chat_id),
                         media=types.InputMediaUploadedDocument(
-                            mime_type="audio/mpeg",
+                            mime_type=self.guess_mime_type(media.media) or "audio/mpeg",
                             thumb=None if media.thumb is None else self.save_file(media.thumb),
                             file=self.save_file(media.media),
                             attributes=[
@@ -240,7 +240,7 @@ class EditMessageMedia(BaseClient):
                     functions.messages.UploadMedia(
                         peer=self.resolve_peer(chat_id),
                         media=types.InputMediaUploadedDocument(
-                            mime_type="video/mp4",
+                            mime_type=self.guess_mime_type(media.media) or "video/mp4",
                             thumb=None if media.thumb is None else self.save_file(media.thumb),
                             file=self.save_file(media.media),
                             attributes=[
@@ -300,7 +300,7 @@ class EditMessageMedia(BaseClient):
                     functions.messages.UploadMedia(
                         peer=self.resolve_peer(chat_id),
                         media=types.InputMediaUploadedDocument(
-                            mime_type="application/zip",
+                            mime_type=self.guess_mime_type(media.media) or "application/zip",
                             thumb=None if media.thumb is None else self.save_file(media.thumb),
                             file=self.save_file(media.media),
                             attributes=[

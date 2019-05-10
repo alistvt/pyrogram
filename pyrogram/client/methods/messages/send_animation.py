@@ -51,7 +51,7 @@ class SendAnimation(BaseClient):
     ) -> Union["pyrogram.Message", None]:
         """Use this method to send animation files (animation or H.264/MPEG-4 AVC video without sound).
 
-        Args:
+        Parameters:
             chat_id (``int`` | ``str``):
                 Unique identifier (int) or username (str) of the target chat.
                 For your personal cloud (Saved Messages) you can simply use "me" or "self".
@@ -67,9 +67,8 @@ class SendAnimation(BaseClient):
                 Animation caption, 0-1024 characters.
 
             parse_mode (``str``, *optional*):
-                Use :obj:`MARKDOWN <pyrogram.ParseMode.MARKDOWN>` or :obj:`HTML <pyrogram.ParseMode.HTML>`
-                if you want Telegram apps to show bold, italic, fixed-width text or inline URLs in your caption.
-                Defaults to Markdown.
+                Pass "markdown" or "html" if you want Telegram apps to show bold, italic, fixed-width text or inline
+                URLs in your caption. Defaults to "markdown".
 
             duration (``int``, *optional*):
                 Duration of sent animation in seconds.
@@ -83,7 +82,7 @@ class SendAnimation(BaseClient):
             thumb (``str``, *optional*):
                 Thumbnail of the animation file sent.
                 The thumbnail should be in JPEG format and less than 200 KB in size.
-                A thumbnail's width and height should not exceed 90 pixels.
+                A thumbnail's width and height should not exceed 320 pixels.
                 Thumbnails can't be reused and can be only uploaded as a new file.
 
             disable_notification (``bool``, *optional*):
@@ -107,7 +106,7 @@ class SendAnimation(BaseClient):
                 a chat_id and a message_id in order to edit a message with the updated progress.
 
         Other Parameters:
-            client (:obj:`Client <pyrogram.Client>`):
+            client (:obj:`Client`):
                 The Client itself, useful when you want to call other API methods inside the callback function.
 
             current (``int``):
@@ -121,11 +120,12 @@ class SendAnimation(BaseClient):
                 You can either keep *\*args* or add every single extra argument in your function signature.
 
         Returns:
-            On success, the sent :obj:`Message <pyrogram.Message>` is returned.
-            In case the upload is deliberately stopped with :meth:`stop_transmission`, None is returned instead.
+            :obj:`Message`: On success, the sent animation message is returned.
+
+            ``None`` -- In case the upload is deliberately stopped with :meth:`stop_transmission`.
 
         Raises:
-            :class:`RPCError <pyrogram.RPCError>` in case of a Telegram RPC error.
+            RPCError: In case of a Telegram RPC error.
         """
         file = None
         style = self.html if parse_mode.lower() == "html" else self.markdown
@@ -135,7 +135,7 @@ class SendAnimation(BaseClient):
                 thumb = None if thumb is None else self.save_file(thumb)
                 file = self.save_file(animation, progress=progress, progress_args=progress_args)
                 media = types.InputMediaUploadedDocument(
-                    mime_type="video/mp4",
+                    mime_type=self.guess_mime_type(animation) or "video/mp4",
                     file=file,
                     thumb=thumb,
                     attributes=[

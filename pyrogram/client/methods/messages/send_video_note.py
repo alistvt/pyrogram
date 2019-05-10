@@ -48,7 +48,7 @@ class SendVideoNote(BaseClient):
     ) -> Union["pyrogram.Message", None]:
         """Use this method to send video messages.
 
-        Args:
+        Parameters:
             chat_id (``int`` | ``str``):
                 Unique identifier (int) or username (str) of the target chat.
                 For your personal cloud (Saved Messages) you can simply use "me" or "self".
@@ -69,7 +69,7 @@ class SendVideoNote(BaseClient):
             thumb (``str``, *optional*):
                 Thumbnail of the video sent.
                 The thumbnail should be in JPEG format and less than 200 KB in size.
-                A thumbnail's width and height should not exceed 90 pixels.
+                A thumbnail's width and height should not exceed 320 pixels.
                 Thumbnails can't be reused and can be only uploaded as a new file.
 
             disable_notification (``bool``, *optional*):
@@ -93,7 +93,7 @@ class SendVideoNote(BaseClient):
                 a chat_id and a message_id in order to edit a message with the updated progress.
 
         Other Parameters:
-            client (:obj:`Client <pyrogram.Client>`):
+            client (:obj:`Client`):
                 The Client itself, useful when you want to call other API methods inside the callback function.
 
             current (``int``):
@@ -107,11 +107,12 @@ class SendVideoNote(BaseClient):
                 You can either keep *\*args* or add every single extra argument in your function signature.
 
         Returns:
-            On success, the sent :obj:`Message <pyrogram.Message>` is returned.
-            In case the upload is deliberately stopped with :meth:`stop_transmission`, None is returned instead.
+            :obj:`Message`: On success, the sent video note message is returned.
+
+            ``None`` -- In case the upload is deliberately stopped with :meth:`stop_transmission`.
 
         Raises:
-            :class:`RPCError <pyrogram.RPCError>` in case of a Telegram RPC error.
+            RPCError: In case of a Telegram RPC error.
         """
         file = None
 
@@ -120,7 +121,7 @@ class SendVideoNote(BaseClient):
                 thumb = None if thumb is None else self.save_file(thumb)
                 file = self.save_file(video_note, progress=progress, progress_args=progress_args)
                 media = types.InputMediaUploadedDocument(
-                    mime_type="video/mp4",
+                    mime_type=self.guess_mime_type(video_note) or "video/mp4",
                     file=file,
                     thumb=thumb,
                     attributes=[
